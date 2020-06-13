@@ -1,0 +1,75 @@
+
+module "public_subnet_a_administrative" {
+  source = "..\/Modules\/subnet"
+  cidr_block = "10.100.10.0/24"
+  project_code = var.project_code
+  region = var.region
+  vpc_id = aws_vpc.vpc_administrative.id
+  is_public = true
+}
+
+
+module "public_subnet_b_administrative" {
+  source = "..\/Modules\/subnet"
+  cidr_block = "10.100.11.0/24"
+  project_code = var.project_code
+  region = var.region
+  vpc_id = aws_vpc.vpc_administrative.id
+  is_public = true
+  az = "b"
+}
+
+
+resource "aws_route_table" "route_table_administrative_public" {
+  vpc_id = aws_vpc.vpc_administrative.id
+  tags ={
+    Name="${var.project_code}-${var.region}-public-route-administrative"
+  }
+}
+
+resource "aws_internet_gateway" "igw_administrative" {
+  vpc_id = aws_vpc.vpc.id
+  tags ={
+    Name="${var.project_code}-${var.region}-igw-administrative"
+  }
+}
+
+resource "aws_route" "route" {
+  route_table_id = aws_route_table.route_table_administrative_public.id
+  gateway_id = aws_internet_gateway.igw_administrative.id
+  destination_cidr_block = "0.0.0.0/0"
+}
+
+resource "aws_route_table_association" "route_table_public_subnet_association_a_administrative" {
+  route_table_id = aws_route_table.route_table_administrative_public.id
+  subnet_id = module.public_subnet_a_administrative.subnet_id
+}
+
+resource "aws_route_table_association" "route_table_public_subnet_association_b_administrative" {
+  route_table_id = aws_route_table.route_table_public.id
+  subnet_id = module.public_subnet_b_administrative.subnet_id
+}
+
+
+resource "aws_security_group" "sg_bastion_administrative" {
+  name = "${var.region}-${var.project_code}-sg-bastion"
+  vpc_id = aws_vpc.vpc_administrative.id
+}
+
+resource "aws_security_group_rule" "sg_rule_allow_22_administrative" {
+  from_port = 22
+  protocol = "tcp"
+  security_group_id = aws_security_group.sg_bastion_administrative.id
+  to_port = 22
+  type = "ingress"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "sg_rule_outbound_allow_all_administrative" {
+  from_port = 0
+  protocol = "all"
+  security_group_id = aws_security_group.sg_bastion_administrative.id
+  to_port = 0
+  type = "egress"
+  cidr_blocks = ["0.0.0.0/0"]
+}
